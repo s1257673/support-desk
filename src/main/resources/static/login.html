@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — SupportDesk</title>
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+
+    <!-- Logo / Brand -->
+    <div class="auth-brand">
+        <div class="auth-logo">SD</div>
+        <h1>SupportDesk</h1>
+        <p>Sign in to your account</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="card auth-card">
+
+        <!-- Error message — hidden by default, shown on failure -->
+        <div id="errorAlert" class="alert alert-error" style="display:none"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email address</label>
+                <input type="email" id="email" class="form-control"
+                       placeholder="you@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control"
+                       placeholder="Enter your password" required>
+            </div>
+
+            <!-- Button text changes to "Signing in..." while request is in-flight -->
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-full">
+                Sign in
+            </button>
+        </form>
+
+        <p class="text-center mt-4 text-sm">
+            Don't have an account?
+            <a href="/register.html">Create one</a>
+        </p>
+    </div>
+</div>
+
+<!-- type="module" enables ES6 import/export syntax -->
+<script type="module">
+    import { api, saveAuth, isLoggedIn, getCurrentUser } from '/js/api.js';
+
+    // ---- Redirect if already logged in ----
+    // No point showing login page to someone who has a token
+    if (isLoggedIn()) {
+        redirectByRole(getCurrentUser().role);
+    }
+
+    // ---- DOM references ----
+    // getElementById returns the HTML element so we can read/write it
+    const form      = document.getElementById('loginForm');
+    const emailEl   = document.getElementById('email');
+    const passwordEl= document.getElementById('password');
+    const errorAlert= document.getElementById('errorAlert');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // ---- Form submit event listener ----
+    // 'submit' fires when the form is submitted (button click or Enter key)
+    form.addEventListener('submit', async (event) => {
+
+        // Prevent the browser's default behaviour: reloading the page
+        // We handle the submission ourselves with Fetch API
+        event.preventDefault();
+
+        // Clear any previous error
+        hideError();
+
+        // Show loading state
+        submitBtn.textContent = 'Signing in...';
+        submitBtn.disabled = true;
+
+        try {
+            // POST /api/auth/login — our api.js adds Content-Type header
+            const response = await api.post('/api/auth/login', {
+                email:    emailEl.value.trim(),
+                password: passwordEl.value
+            });
+
+            // response is our ApiResponse<AuthResponse>
+            // response.data is the AuthResponse object (token, role, etc.)
+            saveAuth(response.data);
+
+            // Redirect based on role
+            redirectByRole(response.data.role);
+
+        } catch (error) {
+            // Show error message to user
+            showError(error.message);
+
+            // Restore button
+            submitBtn.textContent = 'Sign in';
+            submitBtn.disabled = false;
+        }
+    });
+
+    // ---- Helper functions ----
+
+    function showError(message) {
+        errorAlert.textContent = message;
+        errorAlert.style.display = 'block';
+    }
+
+    function hideError() {
+        errorAlert.style.display = 'none';
+    }
+
+    function redirectByRole(role) {
+        const destinations = {
+            'CUSTOMER': '/pages/customer/dashboard.html',
+            'AGENT':    '/pages/agent/dashboard.html',
+            'ADMIN':    '/pages/admin/dashboard.html'
+        };
+        // window.location.href navigates the browser to a new URL
+        window.location.href = destinations[role] || '/login.html';
+    }
+</script>
+
+</body>
+</html>
